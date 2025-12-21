@@ -1,0 +1,47 @@
+name: Daily AI News Summary
+
+on:
+  schedule:
+    # 北京时间 14:30 -> UTC 06:30
+    - cron: '30 6 * * *'
+    # 北京时间 22:00 -> UTC 14:00
+    - cron: '0 14 * * *'
+  workflow_dispatch: # 允许手动触发进行测试
+
+jobs:
+  analyze-and-report:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        pip install boto3 google-generativeai
+
+    - name: Run AI Summary Script
+      env:
+        # R2 存储配置
+        S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+        S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+        S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+        S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
+        
+        # Gemini 配置
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        
+        # 邮件配置 (请确保你在 GitHub Secrets 中配置了这些)
+        # 如果你原来的项目已有这些 Secret，直接引用即可
+        SMTP_SERVER: "smtp.qq.com" # 或者你的邮件服务器地址
+        SMTP_PORT: 465
+        SMTP_USER: ${{ secrets.SMTP_USER }}      # 发件人邮箱
+        SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}  # 邮箱授权码/密码
+        EMAIL_TO: ${{ secrets.EMAIL_TO }}        # 收件人邮箱
+        
+      run: python scripts/ai_summary.py
