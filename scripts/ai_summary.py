@@ -97,12 +97,11 @@ def analyze_with_gemini(news_content):
     client = genai.Client(api_key=GEMINI_API_KEY)
 
     # 1. 定义候选模型列表 (按优先级尝试)
-    # 2025年优先尝试 2.0-flash，如果不通则尝试 1.5-flash-002 (稳定版)，最后尝试通用别名
     candidate_models = [
-        'gemini-2.0-flash-exp',  # 最新实验版
-        'gemini-1.5-flash-002',  # 1.5 Flash 稳定版 v2
-        'gemini-1.5-flash',      # 通用别名 (可能报错)
-        'gemini-1.5-pro'         # 备选 Pro
+        'gemini-3-pro-preview',  # 最新实验版
+        'gemini-2.5-pro',  
+        'gemini-2.5-flash',     
+        'gemini-2.5-flash-lite'       
     ]
 
     # 准备 Prompt
