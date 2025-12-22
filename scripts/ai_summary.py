@@ -2,22 +2,22 @@ import os
 import sqlite3
 import datetime
 import boto3
-import google.generativeai as genai
+from google import genai  # 使用新的官方 SDK
+from google.genai import types
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
 
 # ---------------- 配置区域 ----------------
-# 从环境变量获取密钥
 S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME")
 S3_ACCESS_KEY_ID = os.environ.get("S3_ACCESS_KEY_ID")
 S3_SECRET_ACCESS_KEY = os.environ.get("S3_SECRET_ACCESS_KEY")
 S3_ENDPOINT_URL = os.environ.get("S3_ENDPOINT_URL")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# 邮件配置 (假设你复用原项目的邮件配置环境变量)
-SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.qq.com") # 默认示例，请根据实际修改
+# 邮件配置
+SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.qq.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", 465))
 SMTP_USER = os.environ.get("SMTP_USER")
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
@@ -25,13 +25,15 @@ EMAIL_TO = os.environ.get("EMAIL_TO")
 
 # ---------------- 1. 从 R2 下载数据 ----------------
 def download_db():
-    # 获取北京时间 (UTC+8)
+    # 获取北京时间
     beijing_time = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
     date_str = beijing_time.strftime("%Y-%m-%d")
+    
+    # 路径格式: news/2025-12-21.db
     file_key = f"news/{date_str}.db"
     local_filename = "daily_news.db"
 
-    print(f"正在尝试下载: {file_key}")
+    print(f"[{beijing_time.strftime('%H:%M')}] 正在从 R2 下载: {file_key}")
 
     s3 = boto3.client(
         's3',
@@ -45,110 +47,174 @@ def download_db():
         print("数据库下载成功。")
         return local_filename
     except Exception as e:
-        print(f"下载失败 (可能是今天的数据还没生成?): {e}")
+        print(f"下载失败 (可能是今天尚未生成数据): {e}")
         return None
 
 # ---------------- 2. 读取 SQLite 数据 ----------------
-def extract_news(db_path):
+def extract_hot_news(db_path):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
-    # 动态获取表名 (防止表名变动)
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    tables = cursor.fetchall()
-    if not tables:
-        return ""
-    
-    # 假设第一个表就是存数据的表 (通常是 'news' 或 'hot_search')
-    table_name = tables[0][0]
-    
-    # 获取最近的数据，限制条数避免 Token 溢出 (例如取最近的 200 条标题)
-    # 假设有 title 字段，如果结构不同需调整
     try:
-        cursor.execute(f"SELECT title FROM {table_name} ORDER BY rowid DESC LIMIT 200")
+        # 检查表是否存在
+        cursor.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='news_items'")
+        if cursor.fetchone()[0] == 0:
+            print("错误：数据库中找不到 news_items 表")
+            return ""
+
+        # SQL 查询策略：
+        # 1. 按 title 分组 (去除不同时间点的重复抓取)
+        # 2. 取 MAX(crawl_count) 作为热度指标
+        # 3. 倒序排列，取前 150 条最持久的热点
+        query = """
+        SELECT title, platform_id, MAX(crawl_count) as heat 
+        FROM news_items 
+        GROUP BY title 
+        ORDER BY heat DESC 
+        LIMIT 150
+        """
+        cursor.execute(query)
         rows = cursor.fetchall()
-        news_text = "\n".join([f"- {row[0]}" for row in rows])
-        return news_text
+        
+        if not rows:
+            print("数据库中没有数据行。")
+            return ""
+
+        # 格式化数据给 AI
+        news_lines = []
+        for row in rows:
+            title = row[0]
+            platform = row[1]
+            # 简单清洗：过滤掉过短的标题
+            if title and len(title) > 4:
+                news_lines.append(f"[{platform}] {title}")
+        
+        print(f"成功提取 {len(news_lines)} 条高热度新闻。")
+        return "\n".join(news_lines)
+
     except Exception as e:
-        print(f"读取数据失败: {e}")
+        print(f"读取数据库失败: {e}")
         return ""
     finally:
         conn.close()
 
-# ---------------- 3. Gemini AI 分析 ----------------
+# ---------------- 3. Gemini AI 分析 (新版 SDK) ----------------
 def analyze_with_gemini(news_content):
     if not news_content:
-        return "今日暂无足够数据进行分析。"
+        return None
 
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash') # 使用 flash 模型，速度快且免费额度高
+    print("正在初始化 Gemini Client...")
+    # 使用新的 google-genai 客户端
+    client = genai.Client(api_key=GEMINI_API_KEY)
 
-    # 获取当前时间段 (下午 or 晚上)
-    beijing_hour = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).hour
-    time_period = "晚间总结" if beijing_hour >= 18 else "午间速览"
+    beijing_time = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
+    hour = beijing_time.hour
+    
+    if hour < 12:
+        period_title = "早报"
+        greeting = "新的一天，来看看昨夜今晨的热点。"
+    elif hour < 18:
+        period_title = "午间速览"
+        greeting = "忙碌之余，为您梳理最新的网络动态。"
+    else:
+        period_title = "晚间回顾"
+        greeting = "结束了一天的工作，为您总结今日全网焦点。"
 
+    # 提示词
     prompt = f"""
-    你是一个专业的新闻主编。以下是今天截止目前的网络热搜和新闻标题集合。
-    请帮我生成一份**{time_period}**。
+    你是一个专业的新闻主编。以下是今日全网（包含微博、知乎、外媒等）的热搜数据。
+    请根据这些数据，生成一份 HTML 格式的**{period_title}**邮件。
 
-    要求：
-    1. **排版美观**：使用 Emoji、Markdown 标题、分割线进行排版。
-    2. **核心分类**：将新闻归类（例如：🔥 舆论热点、💻 科技前沿、💰 财经动态、🎬 娱乐/生活）。
-    3. **深度总结**：不要只列标题，对最热门的 3-5 个事件进行一句话的深度解读或背景补充。
-    4. **语气风格**：客观、简洁、富有洞察力。
-    5. **HTML格式**：请直接输出适用于邮件发送的 HTML 源码（包含内联 CSS 样式，确保在手机上阅读体验良好），不要输出 Markdown 代码块标记。
+    ### 要求：
+    1.  **筛选核心**：从列表中提炼出 5-8 个最值得关注的事件，不要简单罗列。
+    2.  **分类明确**：例如【🌏 全球/时政】、【💰 财经/科技】、【🔥 社会/舆论】。
+    3.  **深度一句话**：对每个标题进行一句话的背景扩充或深度锐评。
+    4.  **排版要求**：
+        -   **仅输出 HTML 代码**，不要包含 markdown (```html) 标记。
+        -   使用内联 CSS (Inline CSS)，确保邮件显示美观。
+        -   风格：卡片式设计，字体易读，背景清爽。
+    5.  **结构**：
+        -   标题：H2 标签，包含日期。
+        -   导语：{greeting}
+        -   正文：分类卡片。
+        -   结尾：简短结语。
 
-    数据如下：
+    ### 数据源：
     {news_content}
     """
 
     try:
-        response = model.generate_content(prompt)
-        return response.text
+        print("正在发送请求给 Gemini...")
+        # 新版 API 调用方式
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt
+        )
+        
+        text = response.text
+        # 清理可能存在的 Markdown 标记 (以防万一)
+        text = text.replace("```html", "").replace("```", "").strip()
+        return text
+
     except Exception as e:
-        return f"AI 分析失败: {e}"
+        print(f"AI 生成失败: {e}")
+        return None
 
 # ---------------- 4. 发送邮件 ----------------
-def send_email(content):
+def send_email(html_content):
     if not SMTP_USER or not EMAIL_TO:
         print("未配置邮件环境变量，跳过发送。")
-        print("--- 生成的内容如下 ---")
-        print(content)
         return
 
     msg = MIMEMultipart()
     beijing_time = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
-    subject_time = beijing_time.strftime("%m月%d日")
-    subject_period = "晚间回顾" if beijing_time.hour >= 18 else "午间速递"
+    date_str = beijing_time.strftime("%m月%d日")
     
-    msg['Subject'] = Header(f"【TrendRadar AI】{subject_time} {subject_period}", 'utf-8')
+    hour = beijing_time.hour
+    period = "晚间" if hour >= 18 else "午间"
+    
+    msg['Subject'] = Header(f"TrendRadar {date_str} {period} AI简报", 'utf-8')
     msg['From'] = SMTP_USER
     msg['To'] = EMAIL_TO
 
-    # 假设 Gemini 返回的是 HTML
-    msg.attach(MIMEText(content, 'html', 'utf-8'))
+    msg.attach(MIMEText(html_content, 'html', 'utf-8'))
 
     try:
         server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT)
         server.login(SMTP_USER, SMTP_PASSWORD)
         server.sendmail(SMTP_USER, [EMAIL_TO], msg.as_string())
         server.quit()
-        print("邮件发送成功！")
+        print(f"邮件已成功发送至: {EMAIL_TO}")
     except Exception as e:
         print(f"邮件发送失败: {e}")
 
 # ---------------- 主程序 ----------------
 if __name__ == "__main__":
-    db_file = download_db()
-    if db_file:
-        raw_news = extract_news(db_file)
-        if raw_news:
-            print("正在进行 AI 分析...")
-            ai_summary = analyze_with_gemini(raw_news)
-            send_email(ai_summary)
-        else:
-            print("数据库为空或无法读取。")
+    print("--- 开始执行 TrendRadar AI 总结 ---")
     
-    # 清理临时文件
-    if db_file and os.path.exists(db_file):
-        os.remove(db_file)
+    # 1. 下载
+    db_file = download_db()
+    
+    if db_file:
+        # 2. 提取
+        raw_news = extract_hot_news(db_file)
+        
+        if raw_news:
+            # 3. 分析
+            html_report = analyze_with_gemini(raw_news)
+            
+            if html_report:
+                # 4. 发送
+                send_email(html_report)
+            else:
+                print("跳过发送：AI 未返回内容。")
+        else:
+            print("跳过发送：未提取到有效新闻。")
+        
+        # 清理临时文件
+        try:
+            os.remove(db_file)
+        except:
+            pass
+    else:
+        print("跳过执行：无法下载数据库文件。")

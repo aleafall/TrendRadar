@@ -6,7 +6,7 @@ on:
     - cron: '30 6 * * *'
     # 北京时间 22:00 -> UTC 14:00
     - cron: '0 14 * * *'
-  workflow_dispatch: # 允许手动触发进行测试
+  workflow_dispatch:
 
 jobs:
   analyze-and-report:
@@ -19,11 +19,12 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.11'  # 保持 3.11
 
     - name: Install dependencies
       run: |
-        pip install boto3 google-generativeai
+        # 注意：这里改为了 google-genai
+        pip install boto3 google-genai
 
     - name: Run AI Summary Script
       env:
@@ -36,12 +37,11 @@ jobs:
         # Gemini 配置
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         
-        # 邮件配置 (请确保你在 GitHub Secrets 中配置了这些)
-        # 如果你原来的项目已有这些 Secret，直接引用即可
-        SMTP_SERVER: "smtp.qq.com" # 或者你的邮件服务器地址
+        # 邮件配置
+        SMTP_SERVER: "smtp.qq.com"
         SMTP_PORT: 465
-        SMTP_USER: ${{ secrets.SMTP_USER }}      # 发件人邮箱
-        SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}  # 邮箱授权码/密码
-        EMAIL_TO: ${{ secrets.EMAIL_TO }}        # 收件人邮箱
+        SMTP_USER: ${{ secrets.SMTP_USER }}
+        SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        EMAIL_TO: ${{ secrets.EMAIL_TO }}
         
       run: python scripts/ai_summary.py
