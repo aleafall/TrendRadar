@@ -16,10 +16,10 @@ S3_SECRET_ACCESS_KEY = os.environ.get("S3_SECRET_ACCESS_KEY")
 S3_ENDPOINT_URL = os.environ.get("S3_ENDPOINT_URL")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.qq.com")
-SMTP_PORT = int(os.environ.get("SMTP_PORT", 465))
-SMTP_USER = os.environ.get("SMTP_USER")
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
+SMTP_SERVER = os.environ.get("EMAIL_SMTP_SERVER", "smtp.qq.com")
+SMTP_PORT = int(os.environ.get("EMAIL_SMTP_PORT", 465))
+SMTP_USER = os.environ.get("EMAIL_FROM")
+SMTP_PASSWORD = os.environ.get("EMAIL_PASSWORD")
 EMAIL_TO = os.environ.get("EMAIL_TO")
 
 # ---------------- 1. 从 R2 下载数据 ----------------
