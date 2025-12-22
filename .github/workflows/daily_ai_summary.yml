@@ -40,8 +40,8 @@ jobs:
         # 邮件配置
         SMTP_SERVER: "smtp.qq.com"
         SMTP_PORT: 465
-        SMTP_USER: ${{ secrets.SMTP_USER }}
-        SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        EMAIL_FROM: ${{ secrets.EMAIL_FROM}}
+        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD}}
         EMAIL_TO: ${{ secrets.EMAIL_TO }}
         
       run: python scripts/ai_summary.py
