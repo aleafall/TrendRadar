@@ -167,20 +167,20 @@ class AppContext:
         return save_titles_to_file(results, id_to_name, failed_ids, output_path, clean_title)
 
     def read_today_titles(
-        self, platform_ids: Optional[List[str]] = None
+        self, platform_ids: Optional[List[str]] = None, quiet: bool = False
     ) -> Tuple[Dict, Dict, Dict]:
         """读取当天所有标题"""
-        return read_all_today_titles(self.get_storage_manager(), platform_ids)
+        return read_all_today_titles(self.get_storage_manager(), platform_ids, quiet=quiet)
 
     def detect_new_titles(
-        self, platform_ids: Optional[List[str]] = None
+        self, platform_ids: Optional[List[str]] = None, quiet: bool = False
     ) -> Dict:
         """检测最新批次的新增标题"""
-        return detect_latest_new_titles(self.get_storage_manager(), platform_ids)
+        return detect_latest_new_titles(self.get_storage_manager(), platform_ids, quiet=quiet)
 
     def is_first_crawl(self) -> bool:
         """检测是否是当天第一次爬取"""
-        return is_first_crawl_today("output", self.format_date())
+        return self.get_storage_manager().is_first_crawl_today()
 
     # === 频率词处理 ===
 
@@ -212,6 +212,7 @@ class AppContext:
         new_titles: Optional[Dict] = None,
         mode: str = "daily",
         global_filters: Optional[List[str]] = None,
+        quiet: bool = False,
     ) -> Tuple[List[Dict], int]:
         """统计词频"""
         return count_word_frequency(
@@ -229,6 +230,7 @@ class AppContext:
             sort_by_position_first=self.config.get("SORT_BY_POSITION_FIRST", False),
             is_first_crawl_func=self.is_first_crawl,
             convert_time_func=self.convert_time_display,
+            quiet=quiet,
         )
 
     # === 报告生成 ===

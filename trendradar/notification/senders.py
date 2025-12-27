@@ -53,6 +53,8 @@ SMTP_CONFIGS = {
     "189.cn": {"server": "smtp.189.cn", "port": 465, "encryption": "SSL"},
     # 阿里云邮箱（使用 TLS）
     "aliyun.com": {"server": "smtp.aliyun.com", "port": 465, "encryption": "TLS"},
+    # Yandex邮箱（使用 TLS）
+    "yandex.com": {"server": "smtp.yandex.com", "port": 465, "encryption": "TLS"},
 }
 
 

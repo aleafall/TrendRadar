@@ -5,7 +5,6 @@
 支持从 SQLite 数据库和 TXT 文件两种数据源读取。
 """
 
-import json
 import re
 import sqlite3
 from pathlib import Path
@@ -435,12 +434,18 @@ class ParserService:
 
             # 获取抓取时间作为 timestamps
             cursor.execute("""
-                SELECT crawl_time FROM crawl_records
+                SELECT crawl_time, created_at FROM crawl_records
                 ORDER BY crawl_time
             """)
             for row in cursor.fetchall():
                 crawl_time = row['crawl_time']
-                all_timestamps[f"{crawl_time}.db"] = 0  # 用虚拟时间戳
+                created_at = row['created_at']
+                # 将 created_at 转换为 Unix 时间戳
+                try:
+                    ts = datetime.strptime(created_at, "%Y-%m-%d %H:%M:%S").timestamp()
+                except (ValueError, TypeError):
+                    ts = datetime.now().timestamp()
+                all_timestamps[f"{crawl_time}.db"] = ts
 
             conn.close()
 

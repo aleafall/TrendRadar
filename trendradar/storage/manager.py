@@ -264,6 +264,33 @@ class StorageManager:
         """是否支持 TXT 快照"""
         return self.get_backend().supports_txt
 
+    # === 推送记录相关方法 ===
+
+    def has_pushed_today(self, date: Optional[str] = None) -> bool:
+        """
+        检查指定日期是否已推送过
+
+        Args:
+            date: 日期字符串（YYYY-MM-DD），默认为今天
+
+        Returns:
+            是否已推送
+        """
+        return self.get_backend().has_pushed_today(date)
+
+    def record_push(self, report_type: str, date: Optional[str] = None) -> bool:
+        """
+        记录推送
+
+        Args:
+            report_type: 报告类型
+            date: 日期字符串（YYYY-MM-DD），默认为今天
+
+        Returns:
+            是否记录成功
+        """
+        return self.get_backend().record_push(report_type, date)
+
 
 def get_storage_manager(
     backend_type: str = "auto",

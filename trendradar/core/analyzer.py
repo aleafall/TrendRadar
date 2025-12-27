@@ -102,6 +102,7 @@ def count_word_frequency(
     sort_by_position_first: bool = False,
     is_first_crawl_func: Optional[Callable[[], bool]] = None,
     convert_time_func: Optional[Callable[[str], str]] = None,
+    quiet: bool = False,
 ) -> Tuple[List[Dict], int]:
     """
     统计词频，支持必须词、频率词、过滤词、全局过滤词，并标记新增标题
@@ -121,6 +122,7 @@ def count_word_frequency(
         sort_by_position_first: 是否优先按配置位置排序
         is_first_crawl_func: 检测是否是当天第一次爬取的函数
         convert_time_func: 时间格式转换函数
+        quiet: 是否静默模式（不打印日志）
 
     Returns:
         Tuple[List[Dict], int]: (统计结果列表, 总标题数)
@@ -461,9 +463,10 @@ def count_word_frequency(
         # 先按热点条数，再按配置位置（原逻辑）
         stats.sort(key=lambda x: (-x["count"], x["position"]))
 
-    # 打印过滤后的匹配新闻数（与推送显示一致）
+    # 打印过滤后的匹配新闻数
     matched_news_count = sum(len(stat["titles"]) for stat in stats if stat["count"] > 0)
-    if mode == "daily":
-        print(f"频率词过滤后：{matched_news_count} 条新闻匹配（将显示在推送中）")
+    if not quiet and mode == "daily":
+        print(f"当日汇总模式：处理 {total_titles} 条新闻，模式：频率词过滤")
+        print(f"频率词过滤后：{matched_news_count} 条新闻匹配")
 
     return stats, total_titles
