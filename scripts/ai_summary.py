@@ -119,7 +119,7 @@ def analyze_with_gemini(news_list):
 
     candidate_models = [
         'gemini-3-pro-preview',  # 最新实验版
-        'gemini-3-flash',  
+        'gemini-3-flash-preview',  
         'gemini-2.5-pro',  
         'gemini-2.5-flash',     
         'gemini-2.5-flash-lite'  
