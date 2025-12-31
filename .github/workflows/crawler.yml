@@ -141,9 +141,9 @@ jobs:
           DINGTALK_WEBHOOK_URL: ${{ secrets.DINGTALK_WEBHOOK_URL }}
           WEWORK_WEBHOOK_URL: ${{ secrets.WEWORK_WEBHOOK_URL }}
           WEWORK_MSG_TYPE: ${{ secrets.WEWORK_MSG_TYPE }}
-          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          # EMAIL_FROM: ${{ secrets.EMAIL_FROM }} # disable for now
+          # EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          # EMAIL_TO: ${{ secrets.EMAIL_TO }}
           EMAIL_SMTP_SERVER: ${{ secrets.EMAIL_SMTP_SERVER }}
           EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}

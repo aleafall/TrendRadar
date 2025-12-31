@@ -1,11 +1,11 @@
 name: Daily AI News Summary
 
 on:
-  schedule:
+  # schedule: # disable for now
     # 北京时间 14:30 -> UTC 06:30
-    - cron: '30 6 * * *'
+    # - cron: '30 6 * * *'
     # 北京时间 22:00 -> UTC 14:00
-    - cron: '0 14 * * *'
+    # - cron: '0 14 * * *'
   workflow_dispatch:
 
 jobs:
