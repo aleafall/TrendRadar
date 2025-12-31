@@ -140,7 +140,7 @@ def analyze_with_gemini(news_list):
 
     prompt = f"""
     你是一个专业的新闻主编。以下是今日全网热搜数据。
-    请生成一份 HTML 格式的**{period_title}**邮件。
+    请生成一份 HTML 格式的**{period_title}**邮件, 专门提供给投资者阅读。
 
     ### 要求：
     1.  **摘要部分**：从数据中提炼 5-8 个最核心、最值得关注的事件。
