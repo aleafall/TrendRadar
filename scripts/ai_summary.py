@@ -2,6 +2,7 @@ import os
 import sqlite3
 import datetime
 import boto3
+import re
 from google import genai
 from google.genai import types
 import smtplib
@@ -47,10 +48,11 @@ def download_db():
         print(f"下载失败 (可能是今天尚未生成数据): {e}")
         return None
 
-# ---------------- 2. 读取并处理数据 (去重+URL) ----------------
+# ---------------- 2. 读取并处理数据 (去重+URL+语言过滤) ----------------
 def get_news_data(db_path):
     """
     返回一个字典列表，每个元素包含 title, platform_id, url
+    过滤掉包含日文、韩文、俄文等非中英文字符的新闻
     """
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -60,11 +62,7 @@ def get_news_data(db_path):
         if cursor.fetchone()[0] == 0:
             return []
 
-        # SQL 策略：
-        # 1. GROUP BY title: 针对完全相同的标题去重
-        # 2. MAX(url): 如果有多个链接，取一个非空的
-        # 3. MAX(crawl_count): 取最大的抓取次数作为热度
-        # 4. ORDER BY heat DESC: 按热度排序
+        # SQL 查询保持不变
         query = """
         SELECT title, platform_id, MAX(url) as link, MAX(crawl_count) as heat 
         FROM news_items 
@@ -76,26 +74,40 @@ def get_news_data(db_path):
         rows = cursor.fetchall()
         
         news_list = []
-        seen_titles = set() # 二次去重（用于过滤非常相似的标题，可选）
+        
+        # 2. 定义【非中英文】的正则匹配模式
+        # 逻辑：只要标题中包含以下范围的字符，就视为“包含其他语言”，直接跳过
+        # \u3040-\u30FF : 日文 (平假名 + 片假名)
+        # \uAC00-\uD7AF : 韩文 (Hangul)
+        # \u1100-\u11FF : 韩文 (Jamo)
+        # \u0400-\u04FF : 西里尔字母 (俄文等)
+        # \u0E00-\u0E7F : 泰文
+        # \u0600-\u06FF : 阿拉伯文
+        banned_pattern = re.compile(r'[\u3040-\u30ff\uac00-\ud7af\u1100-\u11ff\u0400-\u04ff\u0e00-\u0e7f\u0600-\u06ff]')
 
         for row in rows:
             title = row[0]
             platform = row[1]
             url = row[2]
+            heat = row[3]
             
             if not title or len(title) < 4:
                 continue
 
-            # 简单的相似去重：如果前面已经有了完全包含这个标题的更长的标题，或者它是之前标题的子集
-            # 这里为了效率，只做简单清洗，主要依赖 SQL 的 GROUP BY
+            # 3. 执行语言检查
+            # search() 方法如果找到匹配项（即找到了日韩俄等字符），返回 True
+            if banned_pattern.search(title):
+                # print(f"跳过外语新闻: {title}") # 调试时可以打开
+                continue
+
             news_list.append({
                 "title": title,
                 "platform": platform,
                 "url": url,
-                "heat": row[3]
+                "heat": heat
             })
         
-        print(f"成功提取 {len(news_list)} 条唯一新闻数据。")
+        print(f"成功提取 {len(news_list)} 条唯一新闻数据（已过滤非中英文内容）。")
         return news_list
 
     except Exception as e:
