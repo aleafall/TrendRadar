@@ -249,7 +249,7 @@ def send_email(ai_summary_html, appendix_html, model_name):
     beijing_time = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
     date_str = beijing_time.strftime("%m月%d日")
     hour = beijing_time.hour
-    period = "晚间" if hour >= 18 else "午间"
+    period = "早间" if hour < 12 else ("午间" if hour < 18 else "晚间")
     
     msg['Subject'] = Header(f"TrendRadar {date_str} {period} AI简报", 'utf-8')
     msg['From'] = SMTP_USER
