@@ -38,7 +38,7 @@ jobs:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         
         # 邮件配置
-        SMTP_SERVER: "smtp.qq.com"
+        SMTP_SERVER: "smtp.163.com"
         SMTP_PORT: 465
         EMAIL_FROM: ${{ secrets.EMAIL_FROM}}
         EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD}}
